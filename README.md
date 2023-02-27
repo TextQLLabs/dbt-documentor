@@ -1,4 +1,5 @@
 # DBT Documentor
+![logo](logo.png)
 
 Check out the demo video [here](https://www.youtube.com/watch?v=BGB0D1G10FE)!
 
