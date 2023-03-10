@@ -24,13 +24,12 @@ and Manifest = { nodes: Map<string, NodeMetadata> }
 and NodeMetadata =
     { original_file_path: string
       patch_path: string option
-      compiled_code: string
-      raw_code: string
+      compiled_code: string option
+      raw_code: string option
       description: string
       name: string
       unique_id: string
       fqn: string []
-      refs: string [] []
       columns: Map<string, ColumnMetadata>
       depends_on: Depends }
 
@@ -87,12 +86,15 @@ let mkPrompt (reverseDeps: Dictionary<string, List<string>>) (node: NodeMetadata
             "\nThis is a staging model. Be sure to mention that in the summary.\n"
         else
             ""
+    let raw_code = match node.raw_code with
+          | Some(c) -> c
+          | None -> ""
 
     $@"Write markdown documentation to explain the following DBT model. Be clear and informative, but also accurate. The only information available is the metadata below.
 Explain the raw SQL, then explain the dependencies. Do not list the SQL code or column names themselves; an explanation is sufficient.
 
 Model name: {node.name}
-Raw SQL code: {node.raw_code}
+Raw SQL code: {raw_code}
 Depends on: {deps}
 Depended on by: {rDeps}
 {staging}
