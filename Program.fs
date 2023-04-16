@@ -13,10 +13,9 @@ type OAIRequest =
       prompt: string
       temperature: double
       max_tokens: int }
-and OAIRequestWithUserInfo=
-     { prompt: string
-       email: string }
-and OAIResponse = { choices: OAIChoice [] }
+
+and OAIRequestWithUserInfo = { prompt: string; email: string }
+and OAIResponse = { choices: OAIChoice[] }
 and OAIChoice = { text: string }
 
 and Manifest = { nodes: Map<string, NodeMetadata> }
@@ -26,15 +25,15 @@ and NodeMetadata =
       patch_path: string option
       compiled_code: string option
       raw_code: string option
-      description: string
+      description: string option
       name: string
       unique_id: string
-      fqn: string []
+      fqn: string[]
       columns: Map<string, ColumnMetadata>
       depends_on: Depends }
 
 and ColumnMetadata = { name: string; description: string }
-and Depends = { nodes: string []; macros: string [] }
+and Depends = { nodes: string[]; macros: string[] }
 
 and Env =
     { apiKey: KeyOrUserInfo
@@ -50,8 +49,9 @@ and KeyOrUserInfo =
 and Arguments =
     | Working_Directory of path: string
     | Gen_Undocumented
-    | Gen_Specific of models_list: string list
+    | Gen_Specific of models_list: string
     | Dry_Run
+
     interface IArgParserTemplate with
         member s.Usage =
             match s with
@@ -72,8 +72,7 @@ and GenMode =
     | Specific of string list
 
 let mkPrompt (reverseDeps: Dictionary<string, List<string>>) (node: NodeMetadata) =
-    let deps =
-        String.concat "," node.depends_on.nodes
+    let deps = String.concat "," node.depends_on.nodes
 
     let rDeps =
         if reverseDeps.ContainsKey(node.unique_id) then
@@ -86,9 +85,11 @@ let mkPrompt (reverseDeps: Dictionary<string, List<string>>) (node: NodeMetadata
             "\nThis is a staging model. Be sure to mention that in the summary.\n"
         else
             ""
-    let raw_code = match node.raw_code with
-          | Some(c) -> c
-          | None -> ""
+
+    let raw_code =
+        match node.raw_code with
+        | Some (c) -> c
+        | None -> ""
 
     $@"Write markdown documentation to explain the following DBT model. Be clear and informative, but also accurate. The only information available is the metadata below.
 Explain the raw SQL, then explain the dependencies. Do not list the SQL code or column names themselves; an explanation is sufficient.
@@ -138,30 +139,25 @@ let runOpenAIRequest (env: Env) (prompt: string) : Async<string> =
         let request, options =
             match env.apiKey with
             | Key k ->
-                let url =
-                    "https://api.openai.com/v1/completions"
+                let url = "https://api.openai.com/v1/completions"
 
                 let options = RestClientOptions(url)
                 let request = RestRequest()
                 let _ = request.AddJsonBody(baseReq)
                 options.Authenticator <- OAuth2AuthorizationRequestHeaderAuthenticator(k, "Bearer")
                 (request, options)
-            | UserInfo email  ->
+            | UserInfo email ->
                 let url = "https://api.textql.com/api/oai"
                 let options = RestClientOptions(url)
                 let request = RestRequest()
-                let body = {
-                    prompt = prompt
-                    email = email
-                }
+                let body = { prompt = prompt; email = email }
                 let _ = request.AddJsonBody(body)
                 (request, options)
 
         let client = new RestClient(options)
         let! response = Async.AwaitTask(client.PostAsync(request))
 
-        let result =
-            Json.deserialize<OAIResponse> response.Content
+        let result = Json.deserialize<OAIResponse> response.Content
 
         return result.choices[0].text
     }
@@ -215,22 +211,16 @@ let insertColumnDescription
     (colMap: Map<string, string>)
     (modelNode: YamlNode)
     : unit =
-    let modelNode' =
-        modelNode :?> YamlMappingNode
+    let modelNode' = modelNode :?> YamlMappingNode
 
-    let nameNode =
-        modelNode'.Children[YamlScalarNode("name")] :?> YamlScalarNode
+    let nameNode = modelNode'.Children[YamlScalarNode("name")] :?> YamlScalarNode
 
     let name = nameNode.Value
 
     match Map.tryFind name colMap with // If it's in the node map it shouldn't have a description or it's the empty string
     | None -> ()
     | Some colResult ->
-        let docName =
-            "tql_generated_doc__"
-            + nodeResult.name
-            + "__"
-            + name
+        let docName = "tql_generated_doc__" + nodeResult.name + "__" + name
 
         let mdPath =
             String.concat
@@ -242,8 +232,7 @@ let insertColumnDescription
         let header = "{% docs " + docName + " %}"
         let footer = "{% enddocs %}"
 
-        let docContent =
-            String.concat "\n" [ header; colResult; footer ]
+        let docContent = String.concat "\n" [ header; colResult; footer ]
 
         lock stdoutLock (fun _ -> printfn $"Writing new docs to: {mdPath}")
 
@@ -252,25 +241,21 @@ let insertColumnDescription
         else
             File.WriteAllText(mdPath, docContent)
 
-        let _ =
-            modelNode'.Children.Remove(YamlScalarNode("description"))
+        let _ = modelNode'.Children.Remove(YamlScalarNode("description"))
 
         modelNode'.Children.Add(YamlScalarNode("description"), YamlScalarNode("{{ doc(\"" + docName + "\") }}"))
 
 let insertDescription env (nodeMap: Map<string, SummarizedResult>) (modelNode: YamlNode) : unit =
-    let modelNode' =
-        modelNode :?> YamlMappingNode
+    let modelNode' = modelNode :?> YamlMappingNode
 
-    let nameNode =
-        modelNode'.Children[YamlScalarNode("name")] :?> YamlScalarNode
+    let nameNode = modelNode'.Children[YamlScalarNode("name")] :?> YamlScalarNode
 
     let name = nameNode.Value
 
     match Map.tryFind name nodeMap with // If it's in the node map it shouldn't have a description or it's the empty string
     | None -> ()
     | Some node ->
-        let docName =
-            "tql_generated_doc__" + node.name
+        let docName = "tql_generated_doc__" + node.name
 
         let mdPath =
             String.concat
@@ -282,25 +267,21 @@ let insertDescription env (nodeMap: Map<string, SummarizedResult>) (modelNode: Y
         let header = "{% docs " + docName + " %}"
         let footer = "{% enddocs %}"
 
-        let docContent =
-            String.concat "\n" [ header; node.summary; footer ]
+        let docContent = String.concat "\n" [ header; node.summary; footer ]
 
         lock stdoutLock (fun _ -> printfn $"Writing new docs to: {mdPath}")
 
         if modelNode'.Children.ContainsKey(YamlScalarNode("columns")) then
-            let colsNode =
-                modelNode'.Children[YamlScalarNode("columns")] :?> YamlSequenceNode
+            let colsNode = modelNode'.Children[YamlScalarNode("columns")] :?> YamlSequenceNode
 
-            colsNode
-            |> Seq.iter (insertColumnDescription env node node.columnSummaries)
+            colsNode |> Seq.iter (insertColumnDescription env node node.columnSummaries)
 
         if env.dry_run then
             printfn $"{docContent}"
         else
             File.WriteAllText(mdPath, docContent)
 
-        let _ =
-            modelNode'.Children.Remove(YamlScalarNode("description"))
+        let _ = modelNode'.Children.Remove(YamlScalarNode("description"))
 
         modelNode'.Children.Add(YamlScalarNode("description"), YamlScalarNode("{{ doc(\"" + docName + "\") }}"))
 
@@ -308,10 +289,7 @@ let insertDocs (env: Env) (patchPathMay: string option, nodes: SummarizedResult 
     match patchPathMay with
     | None -> ()
     | Some patchPath ->
-        let path =
-            env.basePath
-            + "/"
-            + patchPath.Replace(env.projectName + "://", "")
+        let path = env.basePath + "/" + patchPath.Replace(env.projectName + "://", "")
 
         let contents = File.ReadAllText(path)
 
@@ -320,20 +298,15 @@ let insertDocs (env: Env) (patchPathMay: string option, nodes: SummarizedResult 
 
             builder.Build()
 
-        let config =
-            deserializer.Deserialize<YamlMappingNode>(contents)
+        let config = deserializer.Deserialize<YamlMappingNode>(contents)
 
         let models = YamlScalarNode("models")
 
-        let resultMap =
-            nodes
-            |> Seq.fold (fun m n -> Map.add n.name n m) Map.empty
+        let resultMap = nodes |> Seq.fold (fun m n -> Map.add n.name n m) Map.empty
 
-        let modelsNode =
-            (config.Children[models] :?> YamlSequenceNode)
+        let modelsNode = (config.Children[models] :?> YamlSequenceNode)
 
-        modelsNode
-        |> Seq.iter (insertDescription env resultMap)
+        modelsNode |> Seq.iter (insertDescription env resultMap)
 
         let serializer = SerializerBuilder().Build()
         let yaml = serializer.Serialize(config)
@@ -348,14 +321,11 @@ let readProjectConfig (basePath: string) : string =
     let path = basePath + "/dbt_project.yml"
     let contents = File.ReadAllText(path)
 
-    let deserializer =
-        DeserializerBuilder().Build()
+    let deserializer = DeserializerBuilder().Build()
 
-    let config =
-        deserializer.Deserialize<YamlMappingNode>(contents)
+    let config = deserializer.Deserialize<YamlMappingNode>(contents)
 
-    let nameNode =
-        config.Children[YamlScalarNode("name")] :?> YamlScalarNode
+    let nameNode = config.Children[YamlScalarNode("name")] :?> YamlScalarNode
 
     nameNode.Value
 
@@ -372,8 +342,7 @@ let shouldWriteDoc (env: Env) (pair: KeyValuePair<string, NodeMetadata>) : bool 
     isModel pair.Key && pred pair.Value.name
 
 let mkReverseDependencyMap (nodes: Map<string, NodeMetadata>) =
-    let ans: Dictionary<string, List<string>> =
-        Dictionary()
+    let ans: Dictionary<string, List<string>> = Dictionary()
 
     let folder () (nm: string) (metadata: NodeMetadata) =
         if isModel nm then
@@ -393,7 +362,7 @@ let parseArgs argv =
         match arg with
         | Working_Directory path -> { config0 with workingDirectory = path }
         | Gen_Undocumented -> { config0 with genMode = Undocumented }
-        | Gen_Specific models_list -> { config0 with genMode = Specific models_list }
+        | Gen_Specific models_list -> { config0 with genMode = Specific(Seq.toList (models_list.Split ',')) }
         | Dry_Run -> { config0 with dry_run = true }
 
     let config0: ArgsConfig =
@@ -401,8 +370,7 @@ let parseArgs argv =
           genMode = Undocumented
           dry_run = false }
 
-    let parser =
-        ArgumentParser.Create<Arguments>(programName = "DbtHelper")
+    let parser = ArgumentParser.Create<Arguments>(programName = "DbtHelper")
 
     let results = parser.Parse(argv)
     let all = results.GetAllResults()
@@ -417,24 +385,21 @@ let main argv =
             let contents =
                 try
                     File.ReadAllText(argsEnv.workingDirectory + "/target/manifest.json")
-                with
-                | e ->
+                with e ->
                     printfn "Reading target/manifest.json failed. Please re-run from a dbt project with generated docs"
                     raise e
 
             let manifest =
                 try
                     Json.deserialize<Manifest> contents
-                with
-                | e ->
+                with e ->
                     printfn "manifest.json deserialization failed"
                     raise e
 
             let projectName =
                 try
                     readProjectConfig argsEnv.workingDirectory
-                with
-                | e ->
+                with e ->
                     printfn "Reading dbt_project.yml failed. Please re-run from a dbt project root."
                     raise e
 
@@ -442,13 +407,20 @@ let main argv =
                 match Environment.GetEnvironmentVariable("OPENAI_API_KEY") with
                 | null ->
                     printfn "You haven't specified an API Key. No worries, this one's on TextQL!"
-                    printfn "In return, please type your email address. We don't collect any other data, nor sell your email to third parties."
-                    printfn "If you're okay with this, press enter. Otherwise, type 'no' and set the OPENAI_API_KEY environment variable."
+
+                    printfn
+                        "In return, please type your email address. We don't collect any other data, nor sell your email to third parties."
+
+                    printfn
+                        "If you're okay with this, press enter. Otherwise, type 'no' and set the OPENAI_API_KEY environment variable."
+
                     printf "Email (type no to abort): "
-                    let email =  Console.ReadLine ()
-                    if email.Equals "no"
-                        then raise (ApiKeyNotFound ())
-                        else UserInfo email
+                    let email = Console.ReadLine()
+
+                    if email.Equals "no" then
+                        raise (ApiKeyNotFound())
+                    else
+                        UserInfo email
                 | k -> Key k
 
             let models =
@@ -479,8 +451,7 @@ let main argv =
         if env.dry_run then
             printfn "Dry Run. Results will not be written."
 
-        let rDeps =
-            mkReverseDependencyMap manifest.nodes
+        let rDeps = mkReverseDependencyMap manifest.nodes
 
         let limitedPar fn = Async.Parallel(fn, 4)
 
