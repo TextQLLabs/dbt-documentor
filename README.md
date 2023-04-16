@@ -11,6 +11,8 @@ Contact me at mark %at-sign% textql.com, or book a meeting with me [here](https:
 
 The dotnet SDK version 6.0 is needed to install this project. `cd` into the project directory, `dotnet publish`, and install the binary into your `PATH`. To build a self-contained binary (not dependent on dotnet), run `dotnet publish --sc --runtime {RID}` where the RID is a valid runtime identifier [link](https://learn.microsoft.com/en-us/dotnet/core/rid-catalog). Popular RIDs are `linux-x64`, `osx.13-x64`, `osx.13-arm64`, `win10-x64`.
 
+Alternatively, to run it without installing you can simply use `dotnet run` with `--` coming before any arguments, i.e. `dotnet run -- --working-directory /working/dir`
+
 TODO: Publish binaries for popular platforms to npm/pip.
 
 ## Usage
