@@ -339,8 +339,18 @@ let shouldWriteDoc (env: Env) (pair: KeyValuePair<string, NodeMetadata>) : bool 
         | None -> pair.Value.description.Equals("")
         | Some models -> models.Contains nm
 
-    isModel pair.Key && pred pair.Value.name
+    let hasPatchPath =
+        match pair.Value.patch_path with
+        | None -> false
+        | _ -> true
 
+    let cond = isModel pair.Key && pred pair.Value.name
+
+    if not hasPatchPath && cond then
+        printfn
+            $"Model {pair.Key} doesn't appear to be declared in a .yml file. Generating docs isn't yet supported for models without a corresponding yaml declaration."
+    hasPatchPath && cond
+    
 let mkReverseDependencyMap (nodes: Map<string, NodeMetadata>) =
     let ans: Dictionary<string, List<string>> = Dictionary()
 
