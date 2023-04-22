@@ -9,23 +9,24 @@
         <InvariantGlobalization>true</InvariantGlobalization>
     </PropertyGroup>
     <ItemGroup>
-        <Compile Include="Program.fs"/>
+        <Compile Include="Program.fs" />
     </ItemGroup>
 
     <ItemGroup>
-        <Content Include=".dockerignore"/>
-        <Content Include="Dockerfile"/>
+        <Content Include=".dockerignore" />
+        <Content Include="Dockerfile" />
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Argu" Version="6.1.1"/>
-        <PackageReference Include="FSharp.Json" Version="0.4.1"/>
-        <PackageReference Include="RestSharp" Version="109.0.0-preview.1"/>
-        <PackageReference Include="YamlDotNet" Version="12.3.1"/>
+        <PackageReference Include="AI.Dev.OpenAI.GPT" Version="1.0.2" />
+        <PackageReference Include="Argu" Version="6.1.1" />
+        <PackageReference Include="FSharp.Json" Version="0.4.1" />
+        <PackageReference Include="RestSharp" Version="109.0.0-preview.1" />
+        <PackageReference Include="YamlDotNet" Version="12.3.1" />
     </ItemGroup>
 
     <ItemGroup>
-        <EmbeddedResource Remove="obj\**"/>
+        <EmbeddedResource Remove="obj\**" />
     </ItemGroup>
 
 </Project>
