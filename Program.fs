@@ -31,10 +31,13 @@ and NodeMetadata =
       unique_id: string
       fqn: string[]
       columns: Map<string, ColumnMetadata>
-      depends_on: Depends }
+      depends_on: Depends option }
 
 and ColumnMetadata = { name: string; description: string }
-and Depends = { nodes: string[]; macros: string[] }
+
+and Depends =
+    { nodes: string[] option
+      macros: string[] option }
 
 and Env =
     { apiKey: KeyOrUserInfo
@@ -73,7 +76,10 @@ and GenMode =
     | Specific of string list
 
 let mkPrompt (reverseDeps: Dictionary<string, List<string>>) (node: NodeMetadata) =
-    let deps = String.concat "," node.depends_on.nodes
+    let deps =
+        match node.depends_on with
+        | Some deps -> String.concat "," (Option.defaultValue [||] deps.nodes)
+        | None -> "(No dependencies)"
 
     let rDeps =
         if reverseDeps.ContainsKey(node.unique_id) then
@@ -382,8 +388,13 @@ let mkReverseDependencyMap (nodes: Map<string, NodeMetadata>) =
     let ans: Dictionary<string, List<string>> = Dictionary()
 
     let folder () (nm: string) (metadata: NodeMetadata) =
+        let nodes =
+            match metadata.depends_on with
+            | Some dep -> Option.defaultValue [||] dep.nodes
+            | None -> [||]
+
         if isModel nm then
-            for modelDep in metadata.depends_on.nodes do
+            for modelDep in nodes do
                 if ans.ContainsKey modelDep then
                     ans[ modelDep ].Add nm
                 else
